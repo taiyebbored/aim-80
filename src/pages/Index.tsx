@@ -9,7 +9,8 @@ import {
   detectEntities, 
   redactText, 
   calculateMetrics,
-  type RedactionMode 
+  type RedactionMode,
+  type DetectedEntity
 } from '@/utils/redactionEngine';
 import { toast } from 'sonner';
 
@@ -71,25 +72,32 @@ At 21:04 on 23/04/2024, Abdul Rahim from Walthamstow submitted a dispute form us
 const Index = () => {
   const [originalText, setOriginalText] = useState(SAMPLE_TEXT);
   const [redactionMode, setRedactionMode] = useState<RedactionMode>('redact');
-  const [entities, setEntities] = useState<ReturnType<typeof detectEntities>>([]);
+  const [entities, setEntities] = useState<DetectedEntity[]>([]);
   const [redactedText, setRedactedText] = useState('');
   const [metrics, setMetrics] = useState({ totalDetected: 0, uniqueTypes: 0, coverage: 0 });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    if (originalText.trim()) {
-      const detected = detectEntities(originalText);
-      setEntities(detected);
-      
-      const redacted = redactText(originalText, detected, redactionMode);
-      setRedactedText(redacted);
-      
-      const calculatedMetrics = calculateMetrics(detected);
-      setMetrics(calculatedMetrics);
-    } else {
-      setEntities([]);
-      setRedactedText('');
-      setMetrics({ totalDetected: 0, uniqueTypes: 0, coverage: 0 });
-    }
+    const processText = async () => {
+      if (originalText.trim()) {
+        setIsProcessing(true);
+        const detected = await detectEntities(originalText, true); // Use hybrid detection
+        setEntities(detected);
+        
+        const redacted = redactText(originalText, detected, redactionMode);
+        setRedactedText(redacted);
+        
+        const calculatedMetrics = calculateMetrics(detected);
+        setMetrics(calculatedMetrics);
+        setIsProcessing(false);
+      } else {
+        setEntities([]);
+        setRedactedText('');
+        setMetrics({ totalDetected: 0, uniqueTypes: 0, coverage: 0 });
+      }
+    };
+    
+    processText();
   }, [originalText, redactionMode]);
 
   const handleExport = () => {
@@ -160,11 +168,18 @@ const Index = () => {
             <AlertCircle className="w-5 h-5 text-primary mt-0.5" />
             <div>
               <p className="text-sm font-medium text-foreground">
-                Cybersecurity Redaction Challenge
+                {isProcessing ? '🔄 Processing with Hybrid Detection (Regex + ML)...' : 'Cybersecurity Redaction Challenge'}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                This system detects and redacts 8 types of sensitive entities: PERSON, LOCATION, 
-                EMAIL_ADDRESS, IP_ADDRESS, PHONE_NUMBER, CREDIT_CARD, DATE_TIME, and URL.
+                {isProcessing ? (
+                  'Analyzing text with enhanced regex patterns and machine learning models...'
+                ) : (
+                  <>
+                    This system detects and redacts 8 types of sensitive entities using hybrid detection: 
+                    PERSON, LOCATION, EMAIL_ADDRESS, IP_ADDRESS, PHONE_NUMBER, CREDIT_CARD, DATE_TIME, and URL.
+                    {entities.length > 0 && ` Found ${entities.length} entities.`}
+                  </>
+                )}
               </p>
             </div>
           </div>
